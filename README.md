@@ -8,3 +8,11 @@ Manufacturer: http://www.canton-electronics.com
 Chipset: HT1622 or equivalent
 
 LCD = 9 digit 16 seg + 3 dp + 'HZ' symbol + continuous backlight
+
+Some images:
+
+![All segments active](/images/ETM8809K2-02_front.png)
+
+![Front (LCD side)](/images/ETM8809K2-02_front.png)
+
+![Rear (component side)](/images/ETM8809K2-02_rear.png)

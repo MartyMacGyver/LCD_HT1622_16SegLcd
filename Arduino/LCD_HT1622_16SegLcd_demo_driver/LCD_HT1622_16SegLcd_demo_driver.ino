@@ -22,6 +22,12 @@ Board: ETM8809K2-02
 Manufacturer: http://www.canton-electronics.com
 Chipset: HT1622 or equivalent
 LCD = 9 digit 16 seg + 3 dp + 'HZ' symbol + continuous backlight
+Wiring:
+  VDD = 5VDC
+  K = GND
+  A = 3.3V or 5V
+  DATA, RW, CS =  5V logic, as below
+  LCD and RD not used
 
 Arduino is little-endian
 H162x commands and addresses are MSB-first (3 bit mode + 9 bit command code)
@@ -246,10 +252,10 @@ void HT162x_WriteData(uint8_t addr, uint16_t sdata, uint8_t bits = 4)
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 void TestSegments(uint8_t addr)
 {
-    const int SegDelay = 250;
+    const int SegDelay = 50;
     
     // Test cycle (single uint16_t writes)
-    for (uint8_t i = 0; i < 16; i++) {
+    for (uint8_t i = 0x00; i <= 0x1F; i++) {
       HT162x_WriteData(addr, 1<<i, 16);
       delay(SegDelay);
     }
@@ -266,6 +272,18 @@ void TestSegments(uint8_t addr)
     }
     HT162x_WriteData(addr, 0, 16);
     delay(SegDelay);
+}
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+void AllSegments(uint8_t state)
+{
+  const int SegDelay = 3000;
+ 
+  for (uint8_t addr = 0x00; addr < 0x3F; addr++)
+  {
+    HT162x_WriteData(addr, (state ? 0xff : 0x00));
+  }
+  delay(SegDelay);
 }
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -346,18 +364,10 @@ void setup()
   HT162x_Command(CMD_RC_INT);
   //HT162x_Command(CMD_BIAS_COM); // Only for HT1621
   HT162x_Command(CMD_LCD_OFF);
-  for (uint8_t addr = 0x00; addr < 0x3F; addr++)
-  {
-    HT162x_WriteData(addr, 0xff);
-  }
-
+  AllSegments(1);
   HT162x_Command(CMD_LCD_ON); // Should turn it back on
-
-  delay(100);
-  for (uint8_t addr = 0x00; addr < 0x3F; addr++)
-  {
-    HT162x_WriteData(addr, 0x00);
-  }
+  delay(1000);
+  AllSegments(0);
   delay(500);
 }
 
@@ -366,19 +376,16 @@ void setup()
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 void loop()
 {
-  while (1)
+  for (uint8_t pos = 0; pos < NUM_DIGITS; pos++)
   {
-//    for (uint8_t pos = 0; pos < NUM_DIGITS; pos++)
-//    {
-//      TestSegments(digitAddr[pos]);
-//    }
-
-    RandomSegments(10000);
-
-//    TestChars();
-
-    delay(1000);
+    TestSegments(digitAddr[pos]);
   }
+
+  RandomSegments(1000);
+
+  //TestChars();
+
+  delay(1000);
 }
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
