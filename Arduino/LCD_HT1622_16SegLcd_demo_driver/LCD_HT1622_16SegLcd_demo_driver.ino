@@ -1,7 +1,8 @@
 
-//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-//    Arduino demo/driver for HT1622-based 16 segment LCDs
 /*
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    Arduino demo/driver for HT1622-based 16 segment LCDs
+
     Copyright (c) 2015-2021 Martin F. Falatic
     
     Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,125 +17,12 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 
-//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-
-Board: ETM8809K2-02
-Manufacturer: http://www.canton-electronics.com
-Chipset: HT1622 or equivalent
-LCD = 9 digit 16 seg + 3 dp + 'HZ' symbol + continuous backlight
-
-Wiring:
-  VDD  = 5VDC (3.3V doesn't seem to work)
-  K    = GND
-  VLCD = -not used-
-  DATA = 5V logic
-  RW   = 5V logic
-  RD   = -not used-
-  CS   = 5V logic
-  A    = 3.3V or 5V for backlight via 100 ohm resistor
-  K    = GND (same as other one)
-
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 Arduino is little-endian
 H162x commands and addresses are MSB-first (3 bit mode + 9 bit command code)
 Note that the very last bit is X (don't care)
 Data is LSB-first, in address-sequential 4-bit nibbles as desired.
-
-Addressing (each address hold 4 bits):
-  Addr 0x00-0x03  = Digit 0
-  Addr 0x04-0x07  = Digit 2
-  Addr 0x08-0x0B  = Digit 4
-  Addr 0x0C-0x0F  = Digit 6
-  Addr 0x10-0x13  = Digit 8
-  Addr 0x14-0x17  = Digit 1
-  Addr 0x18-0x1B  = Digit 3
-  Addr 0x1C-0x1F  = Digit 5
-  Addr 0x20       = (unused)
-  Addr 0x21 bit 3 = Decimal 3
-  Addr 0x21 bit 2 = Decimal 2
-  Addr 0x22-0x25  = Digit 7
-  Addr 0x26       = (unused)
-  Addr 0x27 bit 3 = Decimal 1
-  Addr 0x27 bit 2 = Icon 'Hz'
-  Addr 0x28+      = (unused)
-
-Typical names for segments:
-
-    /-----------\   /-----------\
-   ||    'a'    || ||    'b'    ||
-    \-----------/   \-----------/
-   /-\ /--\      /-\      /--\ /-\
-  |   |\   \    |   |    /   /|   |
-  |   | \   \   |   |   /   / |   |
-  |'h'|  \'k'\  |'m'|  /'n'/  |'c'|
-  |   |   \   \ |   | /   /   |   |
-  |   |    \   \|   |/   /    |   |
-   \-/      \--/ \-/ \--/      \-/
-    /-----------\   /-----------\
-   ||    'u'    || ||    'p'    ||
-    \-----------/   \-----------/
-   /-\      /--\ /-\ /--\      /-\
-  |   |    /   /|   |\   \    |   |
-  |   |   /   / |   | \   \   |   |
-  |'g'|  /'t'/  |'s'|  \'r'\  |'d'|
-  |   | /   /   |   |   \   \ |   |
-  |   |/   /    |   |    \   \|   |
-   \-/ \--/      \-/      \--/ \-/
-    /-----------\   /-----------\
-   ||    'f'    || ||    'e'    ||
-    \-----------/   \-----------/
-
-Bit numbering via a little-endian uint16_t mapped to 4 addresses:
-
-    /-----------\   /-----------\
-   ||     F     || ||     7     ||
-    \-----------/   \-----------/
-   /-\ /--\      /-\      /--\ /-\
-  |   |\   \    |   |    /   /|   |
-  |   | \   \   |   |   /   / |   |
-  | E |  \ D \  | 4 |  / 5 /  | 6 |
-  |   |   \   \ |   | /   /   |   |
-  |   |    \   \|   |/   /    |   |
-   \-/      \--/ \-/ \--/      \-/
-    /-----------\   /-----------\
-   ||     C     || ||     0     ||
-    \-----------/   \-----------/
-   /-\      /--\ /-\ /--\      /-\
-  |   |    /   /|   |\   \    |   |
-  |   |   /   / |   | \   \   |   |
-  | A |  / 9 /  | 8 |  \ 1 \  | 2 |
-  |   | /   /   |   |   \   \ |   |
-  |   |/   /    |   |    \   \|   |
-   \-/ \--/      \-/      \--/ \-/
-    /-----------\   /-----------\
-   ||     B     || ||     3     ||
-    \-----------/   \-----------/
-
-Bit numbering over sequential addresses:
-
-    /-----------\   /-----------\
-   ||    3-3    || ||    1-3    ||
-    \-----------/   \-----------/
-   /-\ /--\      /-\      /--\ /-\
-  |   |\   \    |   |    /   /|   |
-  |   | \   \   |   |   /   / |   |
-  |3-2|  \3-1\  |1-0|  /1-1/  |1-2|
-  |   |   \   \ |   | /   /   |   |
-  |   |    \   \|   |/   /    |   |
-   \-/      \--/ \-/ \--/      \-/
-    /-----------\   /-----------\
-   ||    3-9    || ||    0-0    ||
-    \-----------/   \-----------/
-   /-\      /--\ /-\ /--\      /-\
-  |   |    /   /|   |\   \    |   |
-  |   |   /   / |   | \   \   |   |
-  |2-2|  /2-1/  |2-0|  \0-1\  |0-2|
-  |   | /   /   |   |   \   \ |   |
-  |   |/   /    |   |    \   \|   |
-   \-/ \--/      \-/      \--/ \-/
-    /-----------\   /-----------\
-   ||    2-3    || ||    0-3    ||
-    \-----------/   \-----------/
-
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 */
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -150,6 +38,8 @@ Bit numbering over sequential addresses:
 #define  CMD_LCD_ON   0x03  // LCD ON     (0000-0011-X) Turn on  LCD display
 #define  CMD_RC_INT   0x18  // RC INT     (0001-10XX-X) System clock source, on-chip RC oscillator
 #define  CMD_BIAS_COM 0x29  // BIAS & COM (0010-10X1-X) 1/3 bias, 4 commons // HT1621 only
+
+#define  HT1622_ADDRS 0x40  // HT1622 has 64 possible 4-bit addresses
 
 #define CS   27 // Active low
 #define WR   15 // Active low
@@ -190,6 +80,14 @@ const uint16_t SegCharDataLSBfirst[] = {
   0xD410, 0xD110, 0x1400, 0xD900, 0x1111, 0x0D00, 0x0600, 0x0606, // pqrstuvw
   0x2222, 0x2120, 0x1A00, 0x1198, 0x4400, 0x8911, 0x2020, 0xFFFF, // xyz{|}~
 };
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+char * valToHex(int val, int prec, const char * prefix) {
+      static char fmt[32], output[32];
+      sprintf(fmt, "%s%%0%dX", prefix, prec);
+      sprintf(output, fmt, val);
+      return output;
+}
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 // Send up to 16 bits, MSB (default) or LSB
@@ -246,9 +144,9 @@ void HT162x_WriteData(uint8_t addr, uint16_t sdata, uint8_t bits = 4)
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 void AllElements(uint8_t state)
 {
-  for (uint8_t addr = 0; addr <= 0x27; addr++)
+  for (uint8_t addr = 0; addr < HT1622_ADDRS; addr++)
   {
-    HT162x_WriteData(addr, (state ? 0xf : 0x0), 4);
+    HT162x_WriteData(addr, (state ? 0xF : 0x0), 4);
   }
 }
 
@@ -257,7 +155,7 @@ void AllSegments(uint8_t state)
 {
   for (uint8_t pos = 0; pos < NUM_DIGITS; pos++)
   {
-    HT162x_WriteData(digitAddr[pos], (state ? 0xffff : 0x0000), 16);
+    HT162x_WriteData(digitAddr[pos], (state ? 0xFFFF : 0x0000), 16);
   }
 }
 
@@ -266,7 +164,7 @@ void RandomElements(int segDelay = 1, int cycles = 9)
 {
   for (int cnt = 0; cnt < cycles; cnt++)
   {
-    uint8_t addr = random(0x27+1);
+    uint8_t addr = random(HT1622_ADDRS);
     uint16_t sdata = random(0xF+1);
     HT162x_WriteData(addr, sdata, 4);
     delay(segDelay);
@@ -329,13 +227,74 @@ void TestChars(int CharDelay = 150, int cycles = 1)
 }
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+void SegmentIdentifier()
+{
+  Serial.println("Press keys to idenitify segments");
+  Serial.println("('d' to move forward and 'a' to move backward)");
+  uint8_t  addr = 0;  // 0 to max addr
+  uint8_t  spos = 0;  // 0 to 3
+  int keypress = -2;
+  while (1) {
+    if (keypress == -2) {
+      keypress = -1;
+    }
+    else {
+      keypress = Serial.read();
+      if (keypress == -1) {
+        continue;
+      }
+    }
+
+    uint8_t oldAddr = addr;
+    if (keypress == 'd') {
+      spos += 1;
+      if (spos > 3) {
+        spos = 0;
+        addr += 1;
+      }
+      if (addr >= HT1622_ADDRS) {
+        addr = 0;
+      }
+    }
+    else if (keypress == 'a') {
+      spos -= 1;
+      if (spos > 3) {
+        spos = 3;
+        addr -= 1;
+      }
+      if (addr >= HT1622_ADDRS) {
+        addr = HT1622_ADDRS - 1;
+      }
+    }
+    else if (keypress == 'q' || keypress == 0x1B) {
+      break;
+    }
+
+    Serial.print("  Keypress = ");
+    Serial.print(valToHex(keypress, 4, "0x"));
+    HT162x_WriteData(oldAddr, 0, 4);  // Clear current segment
+    uint16_t sdata = 1 << spos;
+    HT162x_WriteData(addr, sdata, 4);
+    Serial.print("  Addr = ");
+    Serial.print(valToHex(addr, 2, "0x"));
+    Serial.print("  Data = ");
+    Serial.print(valToHex(sdata, 1, "0x"));
+    Serial.println();
+  };
+  Serial.print("  Final keypress = ");
+  Serial.print(valToHex(keypress, 4, "0x"));
+  Serial.println();
+}
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 //#############################################################################
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 void setup()
 {
   Serial.begin(115200);
   delayMicroseconds(RESET_DELAY_USECS);
-
+  Serial.println();
+  Serial.println("Initializing");
   // Set up I/O and display
   pinMode(CS, OUTPUT);
   pinMode(WR, OUTPUT);
@@ -349,6 +308,8 @@ void setup()
   AllElements(0);
   HT162x_Command(CMD_LCD_ON); // Should turn it back on
   delay(1000);
+  Serial.println("Initialization complete");
+  Serial.println();
 }
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -364,6 +325,8 @@ void loop()
   delay(1000);
   AllSegments(0);
   delay(1000);
+
+  SegmentIdentifier();
 
   RandomElements(10, 900);
   AllElements(0);
